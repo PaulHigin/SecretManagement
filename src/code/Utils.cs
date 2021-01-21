@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Management.Automation;
+using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Security;
 
@@ -20,6 +21,13 @@ namespace Microsoft.PowerShell.SecretManagement
     internal static class Utils
     {
         #region Members
+
+        private const string NoVaultRegistered = @"
+        There are currently no extension vaults registered.
+        At least one vault must be registered before SecretManagement can add or retrieve secrets.
+        You can download SecretManagement extension vault modules from PowerShellGallery.
+        https://aka.ms/SMVaults
+        ";
 
         private const string ImplementingExtension = "Extension";
 
@@ -135,6 +143,44 @@ namespace Microsoft.PowerShell.SecretManagement
         {
             return string.Format(CultureInfo.InvariantCulture, 
                 @"{0}.{1}", moduleName, ImplementingExtension);
+        }
+
+        public static string TrimQuotes(string name)
+        {
+            return name.Trim('\'', '"');
+        }
+
+        public static string QuoteName(string name)
+        {
+            bool quotesNeeded = false;
+            foreach (var c in name)
+            {
+                if (Char.IsWhiteSpace(c))
+                {
+                    quotesNeeded = true;
+                    break;
+                }
+            }
+
+            if (!quotesNeeded)
+            {
+                return name;
+            }
+
+            return "'" + CodeGeneration.EscapeSingleQuotedStringContent(name) + "'";
+        }
+
+        public static void CheckForRegisteredVaults(PSCmdlet cmdlet)
+        {
+            if (RegisteredVaultCache.VaultExtensions.Count == 0)
+            {
+                cmdlet.ThrowTerminatingError(
+                    new ErrorRecord(
+                        new PSInvalidOperationException(NoVaultRegistered),
+                        "SecretManagementNoVaultRegistered",
+                        ErrorCategory.InvalidOperation,
+                        cmdlet));
+            }
         }
 
         #endregion

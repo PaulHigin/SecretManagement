@@ -92,6 +92,8 @@ namespace Microsoft.PowerShell.SecretManagement
                 _vaultExtensions = RegisteredVaultCache.VaultExtensions;
             }
 
+            wordToComplete = Utils.TrimQuotes(wordToComplete);
+
             var wordToCompletePattern = WildcardPattern.Get(
                 pattern: string.IsNullOrWhiteSpace(wordToComplete) ? "*" : wordToComplete + "*",
                 options: WildcardOptions.IgnoreCase);
@@ -100,7 +102,8 @@ namespace Microsoft.PowerShell.SecretManagement
             {
                 if (wordToCompletePattern.IsMatch(vaultName))
                 {
-                    yield return new CompletionResult(vaultName, vaultName, CompletionResultType.Text, vaultName);
+                    var returnName = Utils.QuoteName(vaultName);
+                    yield return new CompletionResult(returnName, returnName, CompletionResultType.Text, returnName);
                 }
             }
         }
@@ -804,6 +807,8 @@ namespace Microsoft.PowerShell.SecretManagement
                 }
             }
 
+            wordToComplete = Utils.TrimQuotes(wordToComplete);
+
             var wordToCompletePattern = WildcardPattern.Get(
                 pattern: string.IsNullOrWhiteSpace(wordToComplete) ? "*" : wordToComplete + "*",
                 options: WildcardOptions.IgnoreCase);
@@ -812,7 +817,8 @@ namespace Microsoft.PowerShell.SecretManagement
             {
                 if (wordToCompletePattern.IsMatch(secretName))
                 {
-                    yield return new CompletionResult(secretName, secretName, CompletionResultType.Text, secretName);
+                    var returnName = Utils.QuoteName(secretName);
+                    yield return new CompletionResult(returnName, returnName, CompletionResultType.Text, returnName);
                 }
             }
         }
@@ -923,6 +929,12 @@ namespace Microsoft.PowerShell.SecretManagement
         #endregion
 
         #region Overrides
+
+        protected override void BeginProcessing()
+        {
+            base.BeginProcessing();
+            Utils.CheckForRegisteredVaults(this);
+        }
 
         protected override void EndProcessing()
         {
@@ -1059,6 +1071,12 @@ namespace Microsoft.PowerShell.SecretManagement
         #endregion
 
         #region Overrides
+
+        protected override void BeginProcessing()
+        {
+            base.BeginProcessing();
+            Utils.CheckForRegisteredVaults(this);
+        }
 
         protected override void ProcessRecord()
         {
@@ -1273,6 +1291,12 @@ namespace Microsoft.PowerShell.SecretManagement
         #endregion
 
         #region Overrides
+
+        protected override void BeginProcessing()
+        {
+            base.BeginProcessing();
+            Utils.CheckForRegisteredVaults(this);
+        }
 
         protected override void ProcessRecord()
         {

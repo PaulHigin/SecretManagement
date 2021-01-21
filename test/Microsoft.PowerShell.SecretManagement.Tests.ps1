@@ -380,6 +380,10 @@ Describe "Test Microsoft.PowerShell.SecretManagement module" -tags CI {
             { Register-SecretVault -Name ScriptTestVault -ModuleName $script:scriptModuleFilePath -VaultParameters @{ Verbose = $true } } | Should -Throw -ErrorId 'RegisterSecretVaultCommandCannotUseReservedName,Microsoft.PowerShell.SecretManagement.RegisterSecretVaultCommand'
         }
 
+        It "Verifies no registered vault available error" {
+            { Get-SecretInfo } | Should -Throw -ErrorId 'SecretManagementNoVaultRegistered,Microsoft.PowerShell.SecretManagement.GetSecretInfoCommand'
+        }
+
         It "Should register the script vault extension successfully but with invalid parameters" {
             $additionalParameters = @{ Hello = "There" }
             { Register-SecretVault -Name ScriptTestVault -ModuleName $script:scriptModuleFilePath -VaultParameters $additionalParameters -ErrorVariable err } | Should -Not -Throw

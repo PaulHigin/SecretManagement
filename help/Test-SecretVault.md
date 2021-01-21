@@ -37,7 +37,7 @@ All tests succeeded so no errors are written and 'True' is returned.
 
 ## PARAMETERS
 
-### -Vault
+### -Name
 Name of vault to run self tests on.
 
 ```yaml
