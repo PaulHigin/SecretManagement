@@ -46,7 +46,7 @@ FunctionsToExport = @()
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @(
     'Register-SecretVault','Unregister-SecretVault','Get-SecretVault','Set-SecretVaultDefault','Test-SecretVault',
-    'Set-Secret','Get-Secret','Get-SecretInfo','Remove-Secret')
+    'Set-Secret','Set-SecretMetadata','Get-Secret','Get-SecretInfo','Remove-Secret')
 
 # Variables to export from this module
 VariablesToExport = '*'

@@ -174,12 +174,7 @@ namespace Microsoft.PowerShell.SecretManagement
         {
             if (RegisteredVaultCache.VaultExtensions.Count == 0)
             {
-                cmdlet.ThrowTerminatingError(
-                    new ErrorRecord(
-                        new PSInvalidOperationException(NoVaultRegistered),
-                        "SecretManagementNoVaultRegistered",
-                        ErrorCategory.InvalidOperation,
-                        cmdlet));
+                cmdlet.WriteWarning(NoVaultRegistered);
             }
         }
 
@@ -228,7 +223,7 @@ namespace Microsoft.PowerShell.SecretManagement
         #region Properties
         
         /// <summary>
-        /// Gets or sets the name of the secret.
+        /// Gets the name of the secret.
         /// </summary>
         public string Name
         {
@@ -236,7 +231,7 @@ namespace Microsoft.PowerShell.SecretManagement
         }
 
         /// <summary>
-        /// Gets or sets the object type of the secret.
+        /// Gets the object type of the secret.
         /// </summary>
         public SecretType Type
         {
@@ -244,9 +239,17 @@ namespace Microsoft.PowerShell.SecretManagement
         }
 
         /// <summary>
-        /// Gets or sets the vault name where the secret resides.
+        /// Gets the vault name where the secret resides.
         /// </summary>
         public string VaultName
+        {
+            get;
+        }
+
+        /// <summary>
+        /// Gets metadata of the secret.
+        /// </summary>
+        public Dictionary<string, object> Metadata
         {
             get;
         }
@@ -266,6 +269,18 @@ namespace Microsoft.PowerShell.SecretManagement
             Name = name;
             Type = type;
             VaultName = vaultName;
+        }
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        public SecretInformation(
+            string name,
+            SecretType type,
+            string vaultName,
+            Dictionary<string, object> metadata) : this(name, type, vaultName)
+        {
+            Metadata = metadata;
         }
 
         private SecretInformation()
@@ -341,14 +356,37 @@ namespace Microsoft.PowerShell.SecretManagement
             if ($null -eq $module) {
                 return
             }
-            try
-            {
+            try {
                 Write-Verbose ""Invoking command $Command on module $ImplementingModuleName"" -Verbose:$verboseEnabled
                 & $module ""$ImplementingModuleName\$Command"" @Params
             }
-            catch [System.Management.Automation.CommandNotFoundException]
-            {
+            catch [System.Management.Automation.CommandNotFoundException] {
                 Write-Verbose ""Module $ImplementingModuleName does not support command : $Command"" -Verbose:$verboseEnabled
+            }
+        ";
+
+        private const string RunIfCommandScriptReturn = @"
+            param (
+                [string] $ModulePath,
+                [string] $ImplementingModuleName,
+                [string] $Command,
+                [hashtable] $Params
+            )
+        
+            $verboseEnabled = $Params.AdditionalParameters.ContainsKey('Verbose') -and ($Params.AdditionalParameters['Verbose'] -eq $true)
+            $module = Get-Module -Name ([System.IO.Path]::GetFileNameWithoutExtension($ImplementingModuleName)) -ErrorAction Ignore
+            if ($null -eq $module) {
+                $module = Import-Module -Name $ModulePath -PassThru
+            }
+            if ($null -eq $module) {
+                return $false
+            }
+            try {
+                Write-Verbose ""Invoking command $Command on module $ImplementingModuleName"" -Verbose:$verboseEnabled
+                & $module ""$ImplementingModuleName\$Command"" @Params
+            }
+            catch [System.Management.Automation.CommandNotFoundException] {
+                return $false
             }
         ";
 
@@ -357,6 +395,7 @@ namespace Microsoft.PowerShell.SecretManagement
         internal const string GetSecretCmd = "Get-Secret";
         internal const string GetSecretInfoCmd = "Get-SecretInfo";
         internal const string SetSecretCmd = "Set-Secret";
+        internal const string SetSecretMetadataCmd = "Set-SecretMetadata";
         internal const string RemoveSecretCmd = "Remove-Secret";
         internal const string TestVaultCmd = "Test-SecretVault";
         internal const string UnregisterSecretVaultCommand = "Unregister-SecretVault";
@@ -462,11 +501,13 @@ namespace Microsoft.PowerShell.SecretManagement
         /// <param name="name">Name of secret to add.</param>
         /// <param name="secret">Secret object to add.</param>
         /// <param name="vaultName">Name of registered vault.</param>
+        /// <param name="metadata">Optional metadata associated with the secret.</param>
         /// <param name="cmdlet">Calling cmdlet.</param>
         public void InvokeSetSecret(
             string name,
             object secret,
             string vaultName,
+            Hashtable metadata,
             PSCmdlet cmdlet)
         {
             var additionalParameters = GetAdditionalParams(cmdlet);
@@ -495,12 +536,84 @@ namespace Microsoft.PowerShell.SecretManagement
                         "SetSecretInvalidOperation",
                         ErrorCategory.InvalidOperation,
                         this));
+
+                return;
             }
-            else
+
+            if (metadata != null &&
+                !InvokeSetSecretMetadata(
+                    name: name,
+                    metadata: metadata,
+                    vaultName: vaultName,
+                    cmdlet: cmdlet))
+            {
+                // Unable to write metadata, probably because metadata is not supported by the extension vault.
+                // Remove the secret from the vault, since it did not fully write.
+                cmdlet.WriteError(
+                    new ErrorRecord(
+                        new PSNotSupportedException(
+                            message: string.Format("Cannot store secret {0}. Vault {1} does not support secret metadata.", name, VaultName)),
+                        "InvokeSetSecretMetadataNotSupported",
+                        ErrorCategory.NotImplemented,
+                        cmdlet));
+
+                InvokeRemoveSecret(
+                    name: name,
+                    vaultName: vaultName,
+                    cmdlet: cmdlet);
+                
+                return;
+            }
+            
+            cmdlet.WriteVerbose(
+                string.Format("Secret {0} was successfully added to vault {1}.", name, VaultName));
+        }
+
+        public bool InvokeSetSecretMetadata(
+            string name,
+            Hashtable metadata,
+            string vaultName,
+            PSCmdlet cmdlet)
+        {
+            var additionalParameters = GetAdditionalParams(cmdlet);
+            var parameters = new Hashtable() {
+                { "Name", name },
+                { "Metadata", metadata },
+                { "VaultName", vaultName },
+                { "AdditionalParameters", additionalParameters }
+            };
+
+            var results = InvokeOnCmdlet<bool>(
+                cmdlet: cmdlet,
+                script: RunIfCommandScriptReturn,
+                args: new object[] { ModulePath, ModuleExtensionName, SetSecretMetadataCmd, parameters },
+                out Exception terminatingError);
+            
+            if (terminatingError != null)
+            {
+                ThrowPasswordRequiredException(terminatingError);
+
+                cmdlet.WriteError(
+                    new ErrorRecord(
+                        new PSInvalidOperationException(
+                            message: string.Format("Unable to add secret metadata {0} to vault {1}", name, VaultName),
+                            innerException: terminatingError),
+                        "SetSecretMetadataInvalidOperation",
+                        ErrorCategory.InvalidOperation,
+                        this));
+
+                return false;
+            }
+
+            var success = (results.Count > 0) ? results[0] : false;
+
+            if (success)
             {
                 cmdlet.WriteVerbose(
-                    string.Format("Secret {0} was successfully added to vault {1}.", name, VaultName));
+                    string.Format("Secret metadata {0} was successfully added to vault {1}.", name, VaultName));
             }
+
+            return success;
         }
 
         /// <summary>
