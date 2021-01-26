@@ -282,6 +282,7 @@ namespace Microsoft.PowerShell.SecretManagement
                 dirPath: moduleInfo.ModuleBase,
                 moduleName: moduleInfo.Name,
                 secretMgtModulePath: secretMgtModulePath,
+                setSecretSupportsMetadata: out bool supportsMetadata,
                 error: out Exception error))
             {
                 var invalidException = new PSInvalidOperationException(
@@ -330,6 +331,11 @@ namespace Microsoft.PowerShell.SecretManagement
                 key: ExtensionVaultModule.DescriptionStr,
                 value: Description);
 
+            // Indicate if vault Set-Secret command supports metadata parameter.
+            vaultInfo.Add(
+                key: ExtensionVaultModule.SetSecretSupportsMetadataStr,
+                value: supportsMetadata);
+
             // Make an only registered vault the default vault, if not otherwise specified.
             bool isDefaultVault = MyInvocation.BoundParameters.ContainsKey(nameof(DefaultVault))
                 ? (bool) DefaultVault : (vaultItems.Count == 0);
@@ -363,8 +369,11 @@ namespace Microsoft.PowerShell.SecretManagement
             string dirPath,
             string moduleName,
             string secretMgtModulePath,
+            out bool setSecretSupportsMetadata,
             out Exception error)
         {
+            setSecretSupportsMetadata = false;
+
             // An implementing module will be in a subfolder with module name 'ModuleName.Extension',
             // and will export the five required functions: Set-Secret, Get-Secret, Remove-Secret, Get-SecretInfo, Test-SecretVault.
             var implementingModuleName = Utils.GetModuleExtensionName(moduleName);
@@ -431,6 +440,10 @@ namespace Microsoft.PowerShell.SecretManagement
             {
                 error = new ItemNotFoundException("Set-Secret AdditionalParameters parameter not found.");
                 return false;
+            }
+            if (funcInfo.Parameters.ContainsKey("Metadata"))
+            {
+                setSecretSupportsMetadata = true;
             }
 
             // Remove-Secret function

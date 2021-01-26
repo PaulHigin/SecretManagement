@@ -249,7 +249,7 @@ namespace Microsoft.PowerShell.SecretManagement
         /// <summary>
         /// Gets metadata of the secret.
         /// </summary>
-        public Dictionary<string, object> Metadata
+        public ReadOnlyDictionary<string, object> Metadata
         {
             get;
         }
@@ -278,7 +278,7 @@ namespace Microsoft.PowerShell.SecretManagement
             string name,
             SecretType type,
             string vaultName,
-            Dictionary<string, object> metadata) : this(name, type, vaultName)
+            ReadOnlyDictionary<string, object> metadata) : this(name, type, vaultName)
         {
             Metadata = metadata;
         }
@@ -403,6 +403,7 @@ namespace Microsoft.PowerShell.SecretManagement
         internal const string ModulePathStr = "ModulePath";
         internal const string VaultParametersStr = "VaultParameters";
         internal const string DescriptionStr = "Description";
+        internal const string SetSecretSupportsMetadataStr = "SetSecretSupportsMetadata";
         
         #endregion
 
@@ -433,9 +434,20 @@ namespace Microsoft.PowerShell.SecretManagement
         /// <summary>
         public IReadOnlyDictionary<string, object> VaultParameters { get; }
 
+        /// <summary>
+        /// True when this extension vault is the default vault.
+        /// </summary>
         public bool IsDefault { get; }
 
+        /// <summary>
+        /// Optional description string for vault.
+        /// </summary>
         public string Description { get; }
+
+        /// <summary>
+        /// True when this extension vault Set-Secret function supports the Metadata parameter.
+        /// </summary>
+        public bool SetSecretSupportsMetadata { get; }
 
         #endregion
 
@@ -460,6 +472,8 @@ namespace Microsoft.PowerShell.SecretManagement
             ModuleExtensionName = Utils.GetModuleExtensionName(ModuleName);
             ModulePath = (string) vaultInfo[ModulePathStr];
             Description = vaultInfo.ContainsKey(DescriptionStr) ? (string) vaultInfo[DescriptionStr] : string.Empty;
+            SetSecretSupportsMetadata = vaultInfo.ContainsKey(SetSecretSupportsMetadataStr) ? 
+                (bool) vaultInfo[SetSecretSupportsMetadataStr] : false;
 
             // Additional parameters.
             var vaultParameters = new Dictionary<string, object>();
@@ -489,6 +503,7 @@ namespace Microsoft.PowerShell.SecretManagement
             Description = module.Description;
             VaultParameters = module.VaultParameters;
             IsDefault = module.IsDefault;
+            SetSecretSupportsMetadata = module.SetSecretSupportsMetadata;
         }
 
         #endregion
@@ -518,6 +533,14 @@ namespace Microsoft.PowerShell.SecretManagement
                 { "AdditionalParameters", additionalParameters }
             };
 
+            // Include metadata if supported by vault.
+            if (SetSecretSupportsMetadata)
+            {
+                parameters.Add(
+                    key: "Metadata",
+                    value: metadata ?? new Hashtable());
+            }
+
             InvokeOnCmdlet(
                 cmdlet: cmdlet,
                 script: RunCommandScript,
@@ -540,7 +563,8 @@ namespace Microsoft.PowerShell.SecretManagement
                 return;
             }
 
-            if (metadata != null &&
+            // If metadata is not supported but is provided then attempt to call vault Set-SecretMetadata function.
+            if (metadata != null && !SetSecretSupportsMetadata &&
                 !InvokeSetSecretMetadata(
                     name: name,
                     metadata: metadata,
@@ -1116,6 +1140,7 @@ namespace Microsoft.PowerShell.SecretManagement
               "ModuleName": "TestLocalBin",
               "ModulePath": "E:\\temp\\Modules\\Microsoft.PowerShell.SecretManagement\\ExtModules\\TestLocalBin",
               "Description": "Simple local store binary extension vault module",
+              "SetSecretSupportsMetadata": false
               "VaultParameters": {
                 "Param1": "Hello",
                 "Param2": 102
@@ -1125,6 +1150,7 @@ namespace Microsoft.PowerShell.SecretManagement
               "ModuleName": "TestLocalScript",
               "ModulePath": "E:\\temp\\Modules\\Microsoft.PowerShell.SecretManagement\\ExtModules\\TestLocalScript"
               "Description": "Simple local store script extension vault module",
+              "SetSecretSupportsMetadata": true
               "VaultParameters": {
                 "Param": "SessionId"
               },
