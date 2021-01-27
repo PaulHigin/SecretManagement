@@ -75,15 +75,13 @@ Describe "Test Microsoft.PowerShell.SecretManagement module" -tags CI {
                 )
 
                 if ($Metadata["Fail"] -eq $true) {
-                    return $false
+                    throw [System.Management.Automation.CommandNotFoundException]
                 }
 
                 if ($global:storeMeta.ContainsKey($Name)) {
                     $null = $global:storeMeta.Remove($Name)
                 }
                 $null = $global:storeMeta.Add($Name, $Metadata)
-
-                return $true
             }
 
             function Remove-Secret
@@ -462,17 +460,18 @@ Describe "Test Microsoft.PowerShell.SecretManagement module" -tags CI {
             $info.Metadata["Fail"] | Should -BeFalse
         }
 
-        It "Verifes Set-SecretMetadata succeeds" {
-            { Set-SecretMetadata -Name TestDefaultMeta -Metadata @{ Fail = $false; Data = "MyData" } -ErrorVariable err } | Should -Not -Throw
+        It "Verifes Set-SecretInfo function" {
+            { Set-SecretInfo -Name TestDefaultMeta -Metadata @{ Fail = $false; Data = "MyData" } -ErrorVariable err } | Should -Not -Throw
             $err.Count | Should -Be 0
             $info = Get-SecretInfo -Name TestDefaultMeta
             $info.Metadata | Should -Not -BeNullOrEmpty
             $info.Metadata["Data"] | Should -BeExactly "MyData"
         }
 
-        It "Verifies Set-SecretMetadata fails with expected error" {
-            Set-SecretMetadata -Name TestDefaultMeta -Metadata @{ Fail = $true } -ErrorVariable err 2>$null
-            $err.FullyQualifiedErrorId | Should -BeExactly 'SetSecretCommandMetadataNotSupported,Microsoft.PowerShell.SecretManagement.SetSecretMetadataCommand'
+        It "Verifies Set-SecretInfo fails with expected unsupported error" {
+            Set-SecretInfo -Name TestDefaultMeta -Metadata @{ Fail = $true } -ErrorVariable err 2>$null
+            $err | Should -HaveCount 2
+            $err[1].FullyQualifiedErrorId | Should -BeExactly 'SetSecretMetadataCommandNotSupported,Microsoft.PowerShell.SecretManagement.SetSecretInfoCommand'
         }
     }
 

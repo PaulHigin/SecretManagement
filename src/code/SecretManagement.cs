@@ -1040,7 +1040,7 @@ namespace Microsoft.PowerShell.SecretManagement
     /// with the provided new metadata information.
     /// </summary>
     [Cmdlet(VerbsCommon.Set, "SecretInfo", SupportsShouldProcess = true)]
-    public sealed class SetSecretMetadataCommand : SecretCmdlet
+    public sealed class SetSecretInfoCommand : SecretCmdlet
     {
         #region Parameters
 
@@ -1102,7 +1102,7 @@ namespace Microsoft.PowerShell.SecretManagement
                     exception: new PSInvalidOperationException(
                         "Unable to set secret metadata because no vault was provided and there is no default vault designated."
                     ),
-                    "SetSecretMetadataCommandFailNoVault",
+                    "SetSecretInfoCommandFailNoVault",
                     ErrorCategory.InvalidOperation,
                     this));
         }
@@ -1124,7 +1124,7 @@ namespace Microsoft.PowerShell.SecretManagement
                         new PSNotSupportedException(
                             message: string.Format("Cannot set secret metadata {0}. Vault {1} does not support secret metadata.", 
                                 Name, extensionModule.VaultName)),
-                        "SetSecretCommandMetadataNotSupported",
+                        "SetSecretMetadataCommandNotSupported",
                         ErrorCategory.NotImplemented,
                         this));
             }
