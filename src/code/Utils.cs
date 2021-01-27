@@ -400,7 +400,7 @@ namespace Microsoft.PowerShell.SecretManagement
         internal const string GetSecretCmd = "Get-Secret";
         internal const string GetSecretInfoCmd = "Get-SecretInfo";
         internal const string SetSecretCmd = "Set-Secret";
-        internal const string SetSecretMetadataCmd = "Set-SecretMetadata";
+        internal const string SetSecretInfoCmd = "Set-SecretInfo";
         internal const string RemoveSecretCmd = "Remove-Secret";
         internal const string TestVaultCmd = "Test-SecretVault";
         internal const string UnregisterSecretVaultCommand = "Unregister-SecretVault";
@@ -568,7 +568,7 @@ namespace Microsoft.PowerShell.SecretManagement
                 return;
             }
 
-            // If metadata is not supported but is provided then attempt to call vault Set-SecretMetadata function.
+            // If metadata is not supported but is provided then attempt to call vault Set-SecretInfo function.
             if (metadata != null && !SetSecretSupportsMetadata &&
                 !InvokeSetSecretMetadata(
                     name: name,
@@ -619,7 +619,7 @@ namespace Microsoft.PowerShell.SecretManagement
             var results = InvokeOnCmdlet<int>(
                 cmdlet: cmdlet,
                 script: RunConditionalCommandScript,
-                args: new object[] { ModulePath, ModuleExtensionName, SetSecretMetadataCmd, parameters },
+                args: new object[] { ModulePath, ModuleExtensionName, SetSecretInfoCmd, parameters },
                 out Exception terminatingError);
             
             if (terminatingError != null)

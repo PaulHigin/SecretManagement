@@ -65,7 +65,7 @@ Describe "Test Microsoft.PowerShell.SecretManagement module" -tags CI {
                 return $false
             }
 
-            function Set-SecretMetadata
+            function Set-SecretInfo
             {
                 param (
                     [string] $Name,
@@ -173,7 +173,7 @@ Describe "Test Microsoft.PowerShell.SecretManagement module" -tags CI {
         @{{
             ModuleVersion = '1.0'
             RootModule = '{0}'
-            FunctionsToExport = @('Set-Secret','Set-SecretMetadata','Get-Secret','Remove-Secret','Get-SecretInfo','Test-SecretVault','Unregister-SecretVault')
+            FunctionsToExport = @('Set-Secret','Set-SecretInfo','Get-Secret','Remove-Secret','Get-SecretInfo','Test-SecretVault','Unregister-SecretVault')
         }}
         " -f $implementingModuleName
         $manifestInfo | Out-File -FilePath $implementingManifestFilePath
