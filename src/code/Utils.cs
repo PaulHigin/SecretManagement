@@ -365,7 +365,11 @@ namespace Microsoft.PowerShell.SecretManagement
             }
         ";
 
-        private const string RunIfCommandScriptReturn = @"
+        // Return values:
+        // 0 - Command ran (command will emit any error message)
+        // 1 - Module not found
+        // 2 - Command not found
+        private const string RunConditionalCommandScript = @"
             param (
                 [string] $ModulePath,
                 [string] $ImplementingModuleName,
@@ -379,14 +383,15 @@ namespace Microsoft.PowerShell.SecretManagement
                 $module = Import-Module -Name $ModulePath -PassThru
             }
             if ($null -eq $module) {
-                return $false
+                return 1
             }
             try {
                 Write-Verbose ""Invoking command $Command on module $ImplementingModuleName"" -Verbose:$verboseEnabled
-                & $module ""$ImplementingModuleName\$Command"" @Params
+                $null = & $module ""$ImplementingModuleName\$Command"" @Params
+                return 0
             }
             catch [System.Management.Automation.CommandNotFoundException] {
-                return $false
+                return 2
             }
         ";
 
@@ -607,9 +612,13 @@ namespace Microsoft.PowerShell.SecretManagement
                 { "AdditionalParameters", additionalParameters }
             };
 
-            var results = InvokeOnCmdlet<bool>(
+            // Result values:
+            // 0 - Command ran (command will emit any error message)
+            // 1 - Module not found
+            // 2 - Command not found
+            var results = InvokeOnCmdlet<int>(
                 cmdlet: cmdlet,
-                script: RunIfCommandScriptReturn,
+                script: RunConditionalCommandScript,
                 args: new object[] { ModulePath, ModuleExtensionName, SetSecretMetadataCmd, parameters },
                 out Exception terminatingError);
             
@@ -629,7 +638,8 @@ namespace Microsoft.PowerShell.SecretManagement
                 return false;
             }
 
-            var success = (results.Count > 0) ? results[0] : false;
+            int result = (results.Count > 0) ? results[0] : 0;
+            var success = result == 0;
 
             if (success)
             {
